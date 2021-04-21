@@ -7,7 +7,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="sphericalunet",
-    version="v1.0.5",
+    version="v1.0.6",
     author="Fenqiang Zhao",
     author_email="zhaofenqiang0221@gmail.com",
     description="This is the tools for Spherical U-Net on spherical cortical surfaces",
