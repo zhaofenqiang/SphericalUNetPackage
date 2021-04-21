@@ -1,1 +1,3 @@
-This is the package for [Spherical U-Net](https://github.com/zhaofenqiang/Spherical_U-Net) code.
+This is the Spherical U-Net package code.
+
+It provides fast and accurate sphericla surface processing tools, incluidng parcellation, registration, resampling, atlas construction, etc.
