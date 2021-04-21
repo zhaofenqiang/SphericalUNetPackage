@@ -1,3 +1,4 @@
 dist/*
 build/*
 sphericalunet.egg-info/*
+.pypirc
