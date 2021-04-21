@@ -1,0 +1,4 @@
+dist/*
+build/*
+sphericalunet.egg-info/*
+*/__pycache__
