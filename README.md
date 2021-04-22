@@ -71,6 +71,8 @@ resampled_par = resample_label(surf['vertices'], template_163842['vertices'], su
 
 If you use this code, please cite:
 
-Fenqiang Zhao, et.al. Spherical U-Net on Cortical Surfaces: Methods and Applications. Information Processing in Medical Imaging (IPMI), 2019.
+Fenqiang Zhao, et.al. [Spherical U-Net on Cortical Surfaces: Methods and Applications](https://link.springer.com/chapter/10.1007/978-3-030-20351-1_67). Information Processing in Medical Imaging (IPMI), 2019.
 
-Fenqiang Zhao, et.al. Spherical Deformable U-Net: Application to Cortical Surface Parcellation and Development Prediction. IEEE Transactions on Medical Imaging, 2021.
+Fenqiang Zhao, et.al. [Spherical Deformable U-Net: Application to Cortical Surface Parcellation and Development Prediction](https://link.springer.com/chapter/10.1007/978-3-030-20351-1_67). IEEE Transactions on Medical Imaging, 2021.
+
+Fenqiang Zhao, et.al. [S3Reg: Superfast Spherical Surface Registration Based on Deep Learning](https://ieeexplore.ieee.org/document/9389746). IEEE Transactions on Medical Imaging, 2021.
