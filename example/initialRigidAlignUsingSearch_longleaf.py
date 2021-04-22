@@ -3,7 +3,9 @@
 """
 Created on Wed Nov  4 18:23:30 2020
 
-@author: fenqiang
+@author: Fenqiang Zhao, https://github.com/zhaofenqiang
+
+Contact: zhaofenqiang0221@gmail.com
 """
 
 import time
