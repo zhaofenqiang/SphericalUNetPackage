@@ -1,4 +1,4 @@
-# [Spherical U-Net](https://pypi.org/project/sphericalunet/) package
+# [Spherical U-Net package](https://pypi.org/project/sphericalunet/)
 
 It provides fast and accurate sphericla surface processing tools, including spherical resampling, interpolation, parcellation, registration, atlas construction, etc.
 
