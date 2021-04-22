@@ -60,7 +60,9 @@ resampled_par = resample_label(surf['vertices'], template_163842['vertices'], su
 [Cortical surface parcellation](https://github.com/zhaofenqiang/Spherical_U-Net) with trained models based on this package.
 
 [Cortical surface deformable registration](https://github.com/zhaofenqiang/spherical-registration) with trained models based on this package.
+
 [Cortical surface rigid registration](https://github.com/zhaofenqiang/SphericalUNetPackage/blob/main/sphericalunet/utils/initial_rigid_align.py). An example code can be found [here](https://github.com/zhaofenqiang/SphericalUNetPackage/blob/main/example/initialRigidAlignUsingSearch_longleaf.py).
+
 [Chcek folded triangles](https://github.com/zhaofenqiang/SphericalUNetPackage/blob/6d6c50fc6d20a0d7a2c09669ff1e9e7c78f82007/sphericalunet/utils/utils.py#L294), and correct them (not implemented yet...).
 
 
