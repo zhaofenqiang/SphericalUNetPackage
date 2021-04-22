@@ -1,5 +1,5 @@
 # [Spherical U-Net package](https://pypi.org/project/sphericalunet/)
-Python-based spherical cortical surface processing tools, including spherical resampling, interpolation, parcellation, registration, atlas construction, etc. It uses deep learning techniques to provide fast and accurate cortical surface-based data analysis.
+Python-based spherical cortical surface processing tools, including spherical resampling, interpolation, parcellation, registration, atlas construction, etc. It provides fast and accurate cortical surface-based data analysis using deep learning techniques.
 
 ## Install
 
