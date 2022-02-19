@@ -245,6 +245,7 @@ def get_vertex_dis(n_vertex):
 def check_intersect_vertices_worker(vertices, faces, top_k):
     intersect = []
     for i in range(len(faces)):
+        # print(i)
         face = faces[i,:]
         face_vert = vertices[face,:]
         orig_vertex_1 = face_vert[0]
@@ -263,7 +264,10 @@ def check_intersect_vertices_worker(vertices, faces, top_k):
         assert len(ind) > len(vertices)/6.0, "extremly ugly face" + str(i) + "-th face!"
        
         normal = np.cross(orig_vertex_1-orig_vertex_3, orig_vertex_2-orig_vertex_3)    # normals of the face
-          
+        if (normal == np.array([0,0,0])).all():
+            intersect.append([i, 0])
+            continue
+        
         # use formula p(x) = <p1,n>/<x,n> * x to calculate the intersection with the triangle face
         ratio = np.sum(orig_vertex_1 * normal)/np.sum(vertices[ind,:] * normal, axis=1)
         P = np.repeat(ratio[:,np.newaxis], 3, axis=1) * vertices[ind,:]  # intersection points
@@ -294,14 +298,15 @@ def check_intersect_vertices_worker(vertices, faces, top_k):
 def check_intersect_vertices(vertices, faces):
     """
     vertices: N * 3, numpy array, float 64
-    faces: (N*2-4) * 3, numpy array, float 64
+    faces: (N*2-4) * 3, numpy array, int 64
     """
     
     assert vertices.shape[1] == 3, "vertices size not right"
     assert faces.shape[1] == 3, "faces size not right"
-    assert 2*len(vertices)-4 == len(faces), "vertices are not consistent with faces."
+    # assert 2*len(vertices)-4 == len(faces), "vertices are not consistent with faces."
     
     vertices = vertices.astype(np.float64)
+    vertices = vertices / np.linalg.norm(vertices, axis=1)[:,np.newaxis]  # normalize to 1
     top_k = int(len(vertices)/3.0)
     
     """ multiple processes method: 163842: 9.6s, 40962: 2.8s, 10242: 1.0s, 2562: 0.28s """
@@ -311,7 +316,8 @@ def check_intersect_vertices(vertices, faces):
     results = []
     
     for i in range(cpus):
-        results.append(pool.apply_async(check_intersect_vertices_worker, args=(vertices, faces[i*faces_num_per_cpu:(i+1)*faces_num_per_cpu,:], top_k)))
+        results.append(pool.apply_async(check_intersect_vertices_worker, 
+                                        args=(vertices, faces[i*faces_num_per_cpu:(i+1)*faces_num_per_cpu,:], top_k)))
 
     pool.close()
     pool.join()
@@ -321,4 +327,5 @@ def check_intersect_vertices(vertices, faces):
         intersect = intersect + results[i].get()
     
     intersect = np.asarray(intersect)
+    print("Num of intersect tris:", len(intersect))
     return intersect.size == 0

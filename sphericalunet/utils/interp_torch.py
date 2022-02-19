@@ -47,6 +47,8 @@ def diffeomorp(fixed_xyz, phi_3d, num_composition=6, bi=True, bi_inter=None, nei
         assert bi_inter is not None, "bi_inter is None!"
         
     warped_vertices = fixed_xyz + phi_3d
+    # if (torch.isnan(torch.norm(warped_vertices, dim=1, keepdim=True).repeat(1,3))).sum():
+    #     print("!!!!!! Divide 0, nan error!!!!!!")
     warped_vertices = warped_vertices/(torch.norm(warped_vertices, dim=1, keepdim=True).repeat(1,3))
     
     # compute exp
@@ -56,6 +58,8 @@ def diffeomorp(fixed_xyz, phi_3d, num_composition=6, bi=True, bi_inter=None, nei
         else:
             warped_vertices = resampleSphereSurf(fixed_xyz, warped_vertices, warped_vertices, neigh_orders, device)
         
+        # if (torch.isnan(torch.norm(warped_vertices, dim=1, keepdim=True).repeat(1,3))).sum():
+        #     print("!!!!!! Divide 0, nan error!!!!!!")
         warped_vertices = warped_vertices/(torch.norm(warped_vertices, dim=1, keepdim=True).repeat(1,3))
     
     return warped_vertices
@@ -292,14 +296,29 @@ def kdtreeQuery(vertices, tree):
 
 def resampleSphereSurf(fixed_xyz, moving_xyz, fixed_sulc, neigh_orders, device):
     """
+    
     Interpolate moving points using fixed points and its feature
     
-    fixed_xyz:          N*3, torch cuda tensor, known fixed sphere points
-    moving_xyz,         N*3, torch cuda tensor, points to be interpolated
-    fixed_sulc:         N*3, torch cuda tensor, known feature corresponding to fixed points
-    device:             'torch.device('cpu')', or torch.device('cuda:0'), or ,torch.device('cuda:1')
-    
+    Parameters
+    ----------
+    fixed_xyz : TYPE
+          N*3, torch cuda tensor, known fixed sphere points.
+    moving_xyz : TYPE
+        N*3, torch cuda tensor, points to be interpolated.
+    fixed_sulc : TYPE
+         N*3, torch cuda tensor, known feature corresponding to fixed points.
+    neigh_orders : TYPE
+        DESCRIPTION.
+    device : TYPE
+         'torch.device('cpu')', or torch.device('cuda:0'), or ,torch.device('cuda:1').
+
+    Returns
+    -------
+    fixed_inter : TYPE
+        DESCRIPTION.
+
     """
+ 
     n_vertex = len(moving_xyz)
     fixed_inter = torch.zeros((n_vertex, fixed_sulc.shape[1]), dtype=torch.float32, device = device)
     
@@ -455,7 +474,8 @@ def bilinearResampleSphereSurfImg(vertices_inter_raw, img, radius=1.0):
     
     width = img.shape[0]
 
-    vertices_inter[:,2] = torch.clamp(vertices_inter[:,2].clone(), -0.9999999, 0.9999999)
+    vertices_inter[:,2] = torch.clamp(vertices_inter[:,2].clone(), min=-0.9999999, max=0.9999999)
+    # print("vertices_inter[:,2] min max: ", vertices_inter[:,2].min(), vertices_inter[:,2].max())
     beta = torch.acos(vertices_inter[:,2]/1.0)
     row = beta/(math.pi/(width-1))
 
@@ -485,7 +505,7 @@ def bilinearResampleSphereSurfImg(vertices_inter_raw, img, radius=1.0):
     return feat_inter 
         
 
-def bilinearResampleSphereSurf(vertices_inter, feat, bi_inter, radius=1.0):
+def bilinearResampleSphereSurf(vertices_inter, feat, bi_inter):
     """
     ONLY!! assume vertices_fix are on the standard icosahedron discretized spheres!!
     
@@ -495,9 +515,21 @@ def bilinearResampleSphereSurf(vertices_inter, feat, bi_inter, radius=1.0):
     return bilinearResampleSphereSurfImg(vertices_inter, img)
 
 
-def LossSim(fixed_inter, moving):
-    loss_corr = 1 - ((fixed_inter - fixed_inter.mean()) * (moving - moving.mean())).mean() / fixed_inter.std() / moving.std()
-    loss_l2 = torch.mean((fixed_inter - moving)**2)
+def LossSim(fixed_inter, moving, sucu=False):
+    if sucu:
+        sulc_loss_corr = 1 - ((fixed_inter[:,0] - fixed_inter[:,0].mean()) * \
+                              (moving[:,0] - moving[:,0].mean())).mean() / fixed_inter[:,0].std() / moving[:,0].std()
+        sulc_loss_l2 = torch.mean((fixed_inter[:,0] - moving[:,0])**2)
+        print("sulc corr and l2: ", sulc_loss_corr.item(), sulc_loss_l2.item())
+        curv_loss_corr = 1 - ((fixed_inter[:,1] - fixed_inter[:,1].mean()) * \
+                              (moving[:,1] - moving[:,1].mean())).mean() / fixed_inter[:,1].std() / moving[:,1].std()
+        curv_loss_l2 = torch.mean((fixed_inter[:,1] - moving[:,1])**2)
+        print("curv corr and l2: ", curv_loss_corr.item(), curv_loss_l2.item())
+        loss_corr = sulc_loss_corr * 0.9 + curv_loss_corr * 0.1
+        loss_l2 = sulc_loss_l2 * 0.9 + curv_loss_l2 * 0.1
+    else:
+        loss_corr = 1 - ((fixed_inter - fixed_inter.mean()) * (moving - moving.mean())).mean() / fixed_inter.std() / moving.std()
+        loss_l2 = torch.mean((fixed_inter - moving)**2)
     return loss_corr, loss_l2
 
 
@@ -587,7 +619,7 @@ def S3Register(moving, fixed_sulc, model_0, model_1, model_2, merge_index, En,
     phi_3d_0_to_2 = torch.transpose(phi_3d_0_to_2, 0, 1)
     
     """ first merge """
-    phi_3d = torch.zeros(len(En_0), 3).cuda(device)
+    phi_3d = torch.zeros(len(En_0), 3).to(device)
     phi_3d[index_double_02] = (phi_3d_0_to_2[index_double_02] + phi_3d_2_orig[index_double_02])/2.0
     phi_3d[index_double_12] = (phi_3d_1_to_2[index_double_12] + phi_3d_2_orig[index_double_12])/2.0
     tmp = (phi_3d_0_to_1[index_double_01] + phi_3d_1_orig[index_double_01])/2.0
@@ -596,7 +628,7 @@ def S3Register(moving, fixed_sulc, model_0, model_1, model_2, merge_index, En,
                                      phi_3d_2_orig[index_triple_computed] + \
                                      phi_3d_0_to_2[index_triple_computed])/3.0
     phi_3d_orig = torch.transpose(torch.mm(rot_mat_20, torch.transpose(phi_3d,0,1)),0,1)
-     # print(torch.norm(phi_3d_orig,dim=1).max().item())
+    # print(torch.norm(phi_3d_orig,dim=1).max().item())
     phi_3d_orig_diffe =  phi_3d_orig
     
     if truncated:
@@ -758,8 +790,8 @@ def regOnThisLevel(i_level, fixed_0, moving_0, config, total_deform=None, val=Fa
             loss_centra = torch.mean(torch.abs(pool_mean))
         else:
             loss_centra = torch.tensor([0]).to(device)
-                
-        loss_corr, loss_l2 = LossSim(fixed_inter, moving)
+      
+        loss_corr, loss_l2 = LossSim(fixed_inter, moving, config['features'][0] == 'sucu')
         loss_phi_consistency, loss_smooth = LossPhi(phi_3d_0_to_1, phi_3d_1_orig,
                                                     phi_3d_1_to_2, phi_3d_2_orig,
                                                     phi_3d_0_to_2, phi_3d_orig,

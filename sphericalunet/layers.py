@@ -116,6 +116,38 @@ class tworing_conv_layer(nn.Module):
         
 
     
+class graph_one_ring_conv(nn.Module):
+    """The 1-ring convolutional layer on any graph structures with sampled fixed 
+    neighborhood vertices
+    
+    Parameters:
+            in_feats (int) - - input features/channels
+            out_feats (int) - - output features/channels
+            
+    Input: 
+        N x in_feats tensor
+    Return:
+        N x out_feats tensor
+    """  
+    def __init__(self, in_feats, out_feats, num_neighbors):
+        super(graph_one_ring_conv, self).__init__()
+
+        self.in_feats = in_feats
+        self.out_feats = out_feats
+        self.num_neighbors = num_neighbors
+        
+        self.weight = nn.Linear(num_neighbors * in_feats, out_feats)
+        
+    def forward(self, x, neigh_sorted_orders):
+       
+        mat = x[neigh_sorted_orders].view(len(x), self.num_neighbors*self.in_feats)
+                
+        out_features = self.weight(mat)
+        return out_features
+
+
+
+
 class pool_layer(nn.Module):
     """
     The pooling layer on icosahedron discretized sphere using 1-ring filter

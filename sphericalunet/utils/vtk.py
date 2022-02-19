@@ -13,6 +13,7 @@ import numpy as np
 import pyvista
 import copy, os
 import scipy.io as sio 
+import math, multiprocessing
 
 from sklearn.neighbors import KDTree
 
@@ -93,11 +94,11 @@ def write_vertices(in_ver, file):
         np.savetxt(f, in_ver)
 
 
-def remove_field(data, *fields):
+def remove_field(data, fields):
     """
     remove the field attribute in data
     
-    fileds: list, strings to remove
+    fileds: list of strings, to remove
     data: dic, vtk dictionary
     """
     for field in fields:
@@ -107,13 +108,33 @@ def remove_field(data, *fields):
     return data
 
 
-def resample_label(vertices_fix, vertices_inter, label):
+
+def multiVertexLabel(vertexs, vertices, tree, label):
+    label_inter = np.zeros((vertexs.shape[0], label.shape[1]))
+    for i in range(vertexs.shape[0]):
+        _, nearest_vertex = tree.query(vertexs[i,:][np.newaxis,:], k=1)
+        label_inter[i] = label[nearest_vertex]
+    return label_inter
+
+def resample_label(vertices_fix, vertices_inter, label, multiprocess=True):
     """
+    
     Resample label using nearest neighbor on sphere
     
-    vertices_fix: N*3 numpy array, original sphere
-    vertices_inter: M*3 numpy array, the sphere to be interpolated
-    label: [N, ?], numpy array, the label on orignal sphere
+    Parameters
+    ----------
+    vertices_fix : N*3 numpy array,
+          original sphere.
+    vertices_inter : M*3 numpy array
+        the sphere to be interpolated.
+    label : [N, ?], numpy array,
+         the label on orignal sphere.
+
+    Returns
+    -------
+    label_inter : TYPE
+        DESCRIPTION.
+
     """
     assert len(vertices_fix) == len(label), "length of label should be consistent with the vertices on orginal sphere."
     if len(label.shape) == 1:
@@ -121,9 +142,26 @@ def resample_label(vertices_fix, vertices_inter, label):
     
     tree = KDTree(vertices_fix, leaf_size=10)  # build kdtree
     label_inter = np.zeros((len(vertices_inter), label.shape[1])).astype(np.int32)
-    for i in range(len(vertices_inter)):
-        _, nearest_vertex = tree.query(vertices_inter[i,:][np.newaxis,:], k=1)
-        label_inter[i] = label[nearest_vertex]
+    
+    """ multiple processes method: 163842:  s, 40962:  s, 10242: s, 2562: s """
+    if  multiprocess:
+        pool = multiprocessing.Pool()
+        cpus = multiprocessing.cpu_count()
+        vertexs_num_per_cpu = math.ceil(vertices_inter.shape[0]/cpus)
+        results = []
+        for i in range(cpus):
+            results.append(pool.apply_async(multiVertexLabel, 
+                                            args=(vertices_inter[i*vertexs_num_per_cpu:(i+1)*vertexs_num_per_cpu,:],
+                                                  vertices_fix, tree, label,)))
+        pool.close()
+        pool.join()
+        for i in range(cpus):
+            label_inter[i*vertexs_num_per_cpu:(i+1)*vertexs_num_per_cpu,:] = results[i].get()
+            
+    else:
+        for i in range(len(vertices_inter)):
+            _, nearest_vertex = tree.query(vertices_inter[i,:][np.newaxis,:], k=1)
+            label_inter[i] = label[nearest_vertex]
           
     return label_inter
 

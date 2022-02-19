@@ -11,7 +11,7 @@ Contact: zhaofenqiang0221@gmail.com
 import torch, os
 import numpy as np
 
-from .utils import get_neighs_order, get_upsample_order
+from .utils import get_neighs_order, get_upsample_order, normalize, get_par_36_to_fs_vec
 from .vtk import read_vtk
 from .interp_torch import getEn, get_bi_inter, getOverlapIndex
 from .groupwise_reg import DeformPool
@@ -46,7 +46,7 @@ def readRegConfig(file="./regConfig.txt"):
         elif key in ['weight_l2', 'weight_smooth', \
                      'weight_phi_consis','weight_corr','weight_intra',\
                      'weight_inter','weight_centra','weight_level',\
-                     'weight_long', 'weight_sub_smooth']:
+                     'weight_long', 'weight_sub_smooth', 'weight_parc_sim']:
             config_new[key] = [ float(x) for x in config[key].split(',') ]
             assert len(config_new[key]) == n_levels
         elif key in ['features']:
@@ -73,15 +73,15 @@ def get_fixed_xyz(n_vertex, device):
     fixed_0 = read_vtk(abspath+'/neigh_indices/sphere_' + str(n_vertex) +'_rotated_0.vtk')
     
     fixed_xyz_0 = fixed_0['vertices']/100.0  # fixed spherical coordinate
-    fixed_xyz_0 = torch.from_numpy(fixed_xyz_0.astype(np.float32)).cuda(device)
+    fixed_xyz_0 = torch.from_numpy(fixed_xyz_0.astype(np.float32)).to(device)
     
     # fixed_1 = read_vtk(abspath+'/neigh_indices/sphere_' + str(n_vertex) +'_rotated_1.vtk')
     # fixed_xyz_1 = fixed_1['vertices']/100.0  # fixed spherical coordinate
-    # fixed_xyz_1 = torch.from_numpy(fixed_xyz_1.astype(np.float32)).cuda(device)
+    # fixed_xyz_1 = torch.from_numpy(fixed_xyz_1.astype(np.float32)).to(device)
     
     # fixed_2 = read_vtk(abspath+'/neigh_indices/sphere_' + str(n_vertex) +'_rotated_2.vtk')
     # fixed_xyz_2 = fixed_2['vertices']/100.0  # fixed spherical coordinate
-    # fixed_xyz_2 = torch.from_numpy(fixed_xyz_2.astype(np.float32)).cuda(device)
+    # fixed_xyz_2 = torch.from_numpy(fixed_xyz_2.astype(np.float32)).to(device)
     
     return fixed_xyz_0
 
@@ -124,9 +124,6 @@ def createRegConfig(config):
     grad_filter = torch.ones((7, 1), dtype=torch.float32, device = device)
     grad_filter[6] = -6    
     config['grad_filter'] = grad_filter
-    
-    config['atlas'] = read_vtk(abspath+'/neigh_indices/sphere_' + \
-                     str(config['n_vertexs'][-1]) + '_rotated_0.vtk') 
         
     if 'pool_size' in config:
         deform_pools = []
@@ -141,12 +138,23 @@ def createRegConfig(config):
     config['prior_sulc_max'] = 14.
     config['prior_curv_min'] = -1.3
     config['prior_curv_max'] = 1.0
+    
+    
+    FS_atlas = read_vtk('/media/ychenp/DATA/unc/Data/Template/UNC-Infant-Cortical-Surface-Atlas/18/18_lh.SphereSurf.vtk')
+    config['FS_atlas'] = FS_atlas
+    config['FS_atlas']['vertices'] = config['FS_atlas']['vertices'][0:n_vertexs[-1], :]
+    faces =  read_vtk('/media/ychenp/DATA/unc/Data/Template/sphere_'+ str(n_vertexs[-1]) +'.vtk')
+    config['FS_atlas']['faces'] = faces['faces']
+    
+    config['atlas_sulc'] = torch.from_numpy(normalize(FS_atlas['Convexity'][0:n_vertexs[-1]])).to(device)
+    config['atlas_curv'] = torch.from_numpy(normalize(FS_atlas['curvature'][0:n_vertexs[-1]])).to(device)
+    config['atlas_par_fs_vec'] = FS_atlas['par_FS_vec'][0:n_vertexs[-1],:]
+    par_36_to_fs_vec = get_par_36_to_fs_vec()
+    config['atlas_par_fs'] = np.zeros((len(config['atlas_par_fs_vec']),))
+    for p in range(len(config['atlas_par_fs_vec'])):
+        config['atlas_par_fs'][p] = np.where(np.all(config['atlas_par_fs_vec'][p] == par_36_to_fs_vec, axis=1))[0][0]
+    config['atlas_par_fs'] = torch.from_numpy(config['atlas_par_fs'].astype(np.int64)).to(device)
       
     return config
-
-
-
-
-
 
 
