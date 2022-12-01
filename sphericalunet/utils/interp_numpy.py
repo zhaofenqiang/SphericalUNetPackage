@@ -7,6 +7,12 @@ Created on Mon Feb 10 11:36:21 2020
 
 Contact: zhaofenqiang0221@gmail.com
 
+
+Last update on 2022.08.25
+...
+
+
+
 """
 import numpy as np
 import itertools
@@ -15,6 +21,20 @@ from .utils import get_neighs_order
 import math, multiprocessing, os
 
 abspath = os.path.abspath(os.path.dirname(__file__))
+
+
+
+def get_bi_inter(n_vertex):
+    inter_indices_0 = np.load(abspath+'/neigh_indices/img_indices_'+ str(n_vertex) +'_0.npy')
+    inter_weights_0 = np.load(abspath+'/neigh_indices/img_weights_'+ str(n_vertex) +'_0.npy')
+    
+    inter_indices_1 = np.load(abspath+'/neigh_indices/img_indices_'+ str(n_vertex) +'_1.npy')
+    inter_weights_1 = np.load(abspath+'/neigh_indices/img_weights_'+ str(n_vertex) +'_1.npy')
+    
+    inter_indices_2 = np.load(abspath+'/neigh_indices/img_indices_'+ str(n_vertex) +'_2.npy')
+    inter_weights_2 = np.load(abspath+'/neigh_indices/img_weights_'+ str(n_vertex) +'_2.npy')
+    
+    return (inter_indices_0, inter_weights_0), (inter_indices_1, inter_weights_1), (inter_indices_2, inter_weights_2)
 
 
 def get_latlon_img(bi_inter, feat):
@@ -37,7 +57,7 @@ def get_latlon_img(bi_inter, feat):
  
 def isATriangle(neigh_orders, face):
     """
-    neigh_orders_163842: int, (N*7) x 1
+    neigh_orders: int, N x 7
     face: int, 3 x 1
     """
     neighs = neigh_orders[face[0]]
@@ -91,12 +111,12 @@ def isInTriangle(vertex, v0, v1, v2):
 
 
 
-def singleVertexInterpo_ring(vertex, vertices, tree, neigh_orders, ring_iter=1, ring_threshold=4, threshold=1e-8, debug=False):
+def singleVertexInterpo_ring(vertex, vertices, tree, neigh_orders, ring_iter=1, ring_threshold=3, threshold=1e-8, debug=False):
     
     if ring_iter > ring_threshold:
         print("ring_iter > ring_threshold, use neaerest 3 neighbor")
         _, top3_near_vertex_index = tree.query(vertex[np.newaxis,:], k=3)
-        return  np.squeeze(top3_near_vertex_index)
+        return np.squeeze(top3_near_vertex_index)
 
     _, top1_near_vertex_index = tree.query(vertex[np.newaxis,:], k=1)
     ring = []
@@ -157,73 +177,73 @@ def singleVertexInterpo_ring(vertex, vertices, tree, neigh_orders, ring_iter=1, 
     return candi_faces[index]
     
 
-
-def singleVertexInterpo_7(vertex, vertices, tree, neigh_orders, k=7, threshold=1e-6, k_threshold=15, debug=False):
+# deprecated
+# def singleVertexInterpo_7(vertex, vertices, tree, neigh_orders, k=7, threshold=1e-6, k_threshold=15, debug=False):
     
-    if k > k_threshold:
-        # print("use neaerest neighbor, k=", k)
-        _, top3_near_vertex_index = tree.query(vertex[np.newaxis,:], k=3)
-        top3_near_vertex_index = np.squeeze(top3_near_vertex_index)
-        return top3_near_vertex_index
+#     if k > k_threshold:
+#         # print("use neaerest neighbor, k=", k)
+#         _, top3_near_vertex_index = tree.query(vertex[np.newaxis,:], k=3)
+#         top3_near_vertex_index = np.squeeze(top3_near_vertex_index)
+#         return top3_near_vertex_index
 
-    _, top7_near_vertex_index = tree.query(vertex[np.newaxis,:], k=k)
-    candi_faces = []
-    for t in itertools.combinations(np.squeeze(top7_near_vertex_index), 3):
-        tmp = np.asarray(t)  # get the indices of the potential candidate triangles
-        if isATriangle(neigh_orders, tmp):
-             candi_faces.append(tmp)
+#     _, top7_near_vertex_index = tree.query(vertex[np.newaxis,:], k=k)
+#     candi_faces = []
+#     for t in itertools.combinations(np.squeeze(top7_near_vertex_index), 3):
+#         tmp = np.asarray(t)  # get the indices of the potential candidate triangles
+#         if isATriangle(neigh_orders, tmp):
+#              candi_faces.append(tmp)
    
-    if candi_faces:
-        candi_faces = np.asarray(candi_faces)
-    else:
-        if k > k_threshold-5 and debug==True:
-            print("cannot find candidate faces, top k shoulb be larger, function recursion, current k =", k)
-        return singleVertexInterpo_7(vertex, vertices, tree, neigh_orders, k=k+5, 
-                                     threshold=threshold, k_threshold=k_threshold)
+#     if candi_faces:
+#         candi_faces = np.asarray(candi_faces)
+#     else:
+#         if k > k_threshold-5 and debug==True:
+#             print("cannot find candidate faces, top k shoulb be larger, function recursion, current k =", k)
+#         return singleVertexInterpo_7(vertex, vertices, tree, neigh_orders, k=k+5, 
+#                                      threshold=threshold, k_threshold=k_threshold)
 
-    orig_vertex_1 = vertices[candi_faces[:,0]]
-    orig_vertex_2 = vertices[candi_faces[:,1]]
-    orig_vertex_3 = vertices[candi_faces[:,2]]
-    edge_12 = orig_vertex_2 - orig_vertex_1        # edge vectors from vertex 1 to 2
-    edge_13 = orig_vertex_3 - orig_vertex_1        # edge vectors from vertex 1 to 3
-    faces_normal = np.cross(edge_12, edge_13)    # normals of all the faces
-    tmp = (np.linalg.norm(faces_normal, axis=1) == 0).nonzero()[0]
-    faces_normal[tmp] = orig_vertex_1[tmp]
-    faces_normal_norm = faces_normal / np.linalg.norm(faces_normal, axis=1)[:,np.newaxis]
+#     orig_vertex_1 = vertices[candi_faces[:,0]]
+#     orig_vertex_2 = vertices[candi_faces[:,1]]
+#     orig_vertex_3 = vertices[candi_faces[:,2]]
+#     edge_12 = orig_vertex_2 - orig_vertex_1        # edge vectors from vertex 1 to 2
+#     edge_13 = orig_vertex_3 - orig_vertex_1        # edge vectors from vertex 1 to 3
+#     faces_normal = np.cross(edge_12, edge_13)    # normals of all the faces
+#     tmp = (np.linalg.norm(faces_normal, axis=1) == 0).nonzero()[0]
+#     faces_normal[tmp] = orig_vertex_1[tmp]
+#     faces_normal_norm = faces_normal / np.linalg.norm(faces_normal, axis=1)[:,np.newaxis]
 
-    # use formula p(x) = <p1,n>/<x,n> * x in spherical demons paper to calculate the intersection with each faces
-    tmp = np.sum(orig_vertex_1 * faces_normal_norm, axis=1) / np.sum(vertex * faces_normal_norm, axis=1)
-    P = tmp[:, np.newaxis] * vertex  # intersection points
+#     # use formula p(x) = <p1,n>/<x,n> * x in spherical demons paper to calculate the intersection with each faces
+#     tmp = np.sum(orig_vertex_1 * faces_normal_norm, axis=1) / np.sum(vertex * faces_normal_norm, axis=1)
+#     P = tmp[:, np.newaxis] * vertex  # intersection points
 
-    # find the triangle face that the inersection is in, if the intersection
-    # is in, the area of 3 small triangles is equal to the whole one
-    area_BCP = np.linalg.norm(np.cross(orig_vertex_3-P, orig_vertex_2-P), axis=1)/2.0
-    area_ACP = np.linalg.norm(np.cross(orig_vertex_3-P, orig_vertex_1-P), axis=1)/2.0
-    area_ABP = np.linalg.norm(np.cross(orig_vertex_2-P, orig_vertex_1-P), axis=1)/2.0
-    area_ABC = np.linalg.norm(faces_normal, axis=1)/2.0
+#     # find the triangle face that the inersection is in, if the intersection
+#     # is in, the area of 3 small triangles is equal to the whole one
+#     area_BCP = np.linalg.norm(np.cross(orig_vertex_3-P, orig_vertex_2-P), axis=1)/2.0
+#     area_ACP = np.linalg.norm(np.cross(orig_vertex_3-P, orig_vertex_1-P), axis=1)/2.0
+#     area_ABP = np.linalg.norm(np.cross(orig_vertex_2-P, orig_vertex_1-P), axis=1)/2.0
+#     area_ABC = np.linalg.norm(faces_normal, axis=1)/2.0
     
-    tmp = area_BCP + area_ACP + area_ABP - area_ABC
-    index = np.argmin(tmp)
+#     tmp = area_BCP + area_ACP + area_ABP - area_ABC
+#     index = np.argmin(tmp)
     
-    if tmp[index] > threshold:
-        if k > 30 and debug==True:
-            print("candidate faces don't contain the correct one, top k shoulb be larger, function recursion, current k =", k)
-        return singleVertexInterpo_7(vertex, vertices, tree, neigh_orders, k=k+5, 
-                                     threshold=threshold, k_threshold=k_threshold)
+#     if tmp[index] > threshold:
+#         if k > 30 and debug==True:
+#             print("candidate faces don't contain the correct one, top k shoulb be larger, function recursion, current k =", k)
+#         return singleVertexInterpo_7(vertex, vertices, tree, neigh_orders, k=k+5, 
+#                                      threshold=threshold, k_threshold=k_threshold)
 
-    w = np.array([area_BCP[index], area_ACP[index], area_ABP[index]])
-    if w.sum() == 0:
-        _, top3_near_vertex_index = tree.query(vertex[np.newaxis,:], k=3)
-        top3_near_vertex_index = np.squeeze(top3_near_vertex_index)
-        return top3_near_vertex_index
-    else:
-        return candi_faces[index]
+#     w = np.array([area_BCP[index], area_ACP[index], area_ABP[index]])
+#     if w.sum() == 0:
+#         _, top3_near_vertex_index = tree.query(vertex[np.newaxis,:], k=3)
+#         top3_near_vertex_index = np.squeeze(top3_near_vertex_index)
+#         return top3_near_vertex_index
+#     else:
+#         return candi_faces[index]
         
 
 
-def singleVertexInterpo(vertex, vertices, tree, neigh_orders, feat, fast, threshold=1e-8, k_threshold=20, ring_threshold=4):
+def singleVertexInterpo(vertex, vertices, tree, neigh_orders, feat, fast, threshold=1e-8, ring_threshold=3):
     """
-    Compute the three indices and weights for sphere interpolation at given position.
+    Compute the three indices for sphere interpolation at given position.
     
     """
     _, top3_near_vertex_index = tree.query(vertex[np.newaxis,:], k=3) 
@@ -250,8 +270,8 @@ def singleVertexInterpo(vertex, vertices, tree, neigh_orders, feat, fast, thresh
               #                                       threshold=threshold, k_threshold=k_threshold)
               inter_indices = singleVertexInterpo_ring(vertex, vertices, tree, 
                                                         neigh_orders, ring_iter=1,
-                                                        ring_threshold=4, 
-                                                        threshold=1e-8, debug=False)     
+                                                        ring_threshold=ring_threshold, 
+                                                        threshold=threshold, debug=False)     
         else:
             inter_indices = top3_near_vertex_index
        
@@ -260,12 +280,12 @@ def singleVertexInterpo(vertex, vertices, tree, neigh_orders, feat, fast, thresh
         #                                       threshold=threshold, k_threshold=k_threshold)
         inter_indices = singleVertexInterpo_ring(vertex, vertices, tree, 
                                                 neigh_orders, ring_iter=1,
-                                                ring_threshold=4, 
-                                                threshold=1e-8, debug=False)     
+                                                ring_threshold=ring_threshold, 
+                                                threshold=threshold, debug=False)     
     return inter_indices
 
 
-def multiVertexInterpo(vertexs, vertices, tree, neigh_orders, feat, fast, threshold, k_threshold, ring_threshold):
+def multiVertexInterpo(vertexs, vertices, tree, neigh_orders, feat, fast, threshold, ring_threshold):
     inter_indices = np.zeros((vertexs.shape[0], 3), dtype=np.int32)
     
     for i in range(vertexs.shape[0]):
@@ -276,7 +296,6 @@ def multiVertexInterpo(vertexs, vertices, tree, neigh_orders, feat, fast, thresh
                                                     feat, 
                                                     fast,
                                                     threshold,
-                                                    k_threshold,
                                                     ring_threshold)
     return inter_indices
 
@@ -284,7 +303,8 @@ def multiVertexInterpo(vertexs, vertices, tree, neigh_orders, feat, fast, thresh
 
 def resampleStdSphereSurf(n_curr, n_next, feat, upsample_neighbors):
     assert len(feat) == n_curr, "feat length not cosistent!"
-    assert n_next == n_curr*4-6, "n_next == n_curr*4-6, error"
+    assert n_next == n_curr*4-6, "This function can only upsample one level higher"+ \
+        " If you want to upsample with two levels higher, you need to call this function twice."
     
     feat_inter = np.zeros((n_next, feat.shape[1]))
     feat_inter[0:n_curr, :] = feat
@@ -295,7 +315,7 @@ def resampleStdSphereSurf(n_curr, n_next, feat, upsample_neighbors):
 
 def resampleSphereSurf(vertices_fix, vertices_inter, feat, faces=None, 
                        std=False, upsample_neighbors=None, neigh_orders=None, 
-                       fast=False, threshold=1e-6, k_threshold=15, ring_threshold=3):
+                       fast=False, threshold=1e-6, ring_threshold=3):
     """
     resample sphere surface
 
@@ -319,8 +339,6 @@ def resampleSphereSurf(vertices_fix, vertices_inter, feat, faces=None,
         DESCRIPTION. The default is False.
     threshold : TYPE, optional
         DESCRIPTION. The default is 1e-6.
-    k_threshold : TYPE, optional
-        DESCRIPTION. The default is 20.
 
     Returns
     -------
@@ -329,13 +347,7 @@ def resampleSphereSurf(vertices_fix, vertices_inter, feat, faces=None,
     """
     
     
-#    template = read_vtk('/media/fenqiang/DATA/unc/Data/registration/presentation/regis_sulc_2562_3d_smooth0p33_phiconsis1_3model/training_10242/MNBCP107842_593.lh.SphereSurf.Orig.sphere.resampled.642.DL.origin_3.phi_resampled.2562.moved.sucu_resampled.2562.DL.origin_3.phi_resampled.10242.moved.vtk')
-#    vertices_fix = template['vertices']
-#    feat = template['sulc']
-#    vertices_inter = read_vtk('/media/fenqiang/DATA/unc/Data/Template/Atlas-20200107-newsulc/18/18.lh.SphereSurf.10242.rotated_2.vtk')
-#    vertices_inter = vertices_inter['vertices']
-    
-    assert vertices_fix.shape[0] == feat.shape[0], "vertices.shape[0] == feat.shape[0], error"
+    assert vertices_fix.shape[0] == feat.shape[0], "vertices.shape[0] is not equal to feat.shape[0]"
     assert vertices_fix.shape[1] == 3, "vertices size not right"
     
     vertices_fix = vertices_fix.astype(np.float64)
@@ -352,50 +364,49 @@ def resampleSphereSurf(vertices_fix, vertices_inter, feat, faces=None,
         assert upsample_neighbors is not None, " upsample_neighbors is None"
         return resampleStdSphereSurf(len(vertices_fix), len(vertices_inter), feat, upsample_neighbors)
     
-    if neigh_orders is None:
-        if faces is not None:
-            assert faces.shape[1] == 4, "faces shape is wrong, should be N*4"
-            assert (faces[:,0] == 3).sum() == faces.shape[0], "the first column of faces should be all 3"
-            faces = faces[:,[1, 2, 3]]
-            
-            num_vers = vertices_fix.shape[0]
-            neigh_unsorted_orders = []
-            for i in range(num_vers):
-                neigh_unsorted_orders.append(set())
-            for i in range(faces.shape[0]):
-                face = faces[i]
-                neigh_unsorted_orders[face[0]].add(face[1])
-                neigh_unsorted_orders[face[0]].add(face[2])
-                neigh_unsorted_orders[face[1]].add(face[0])
-                neigh_unsorted_orders[face[1]].add(face[2])
-                neigh_unsorted_orders[face[2]].add(face[0])
-                neigh_unsorted_orders[face[2]].add(face[1])
-            
-            neigh_orders = neigh_unsorted_orders
-                    
-            # deprecated, too slow, use above set() method
-            # for i in range(faces.shape[0]):
-            #     if faces[i,1] not in neigh_orders[faces[i,0]]:
-            #         neigh_orders[faces[i,0], np.where(neigh_orders[faces[i,0]] == -1)[0][0]] = faces[i,1]
-            #     if faces[i,2] not in neigh_orders[faces[i,0]]:
-            #         neigh_orders[faces[i,0], np.where(neigh_orders[faces[i,0]] == -1)[0][0]] = faces[i,2]
-            #     if faces[i,0] not in neigh_orders[faces[i,1]]:
-            #         neigh_orders[faces[i,1], np.where(neigh_orders[faces[i,1]] == -1)[0][0]] = faces[i,0]
-            #     if faces[i,2] not in neigh_orders[faces[i,1]]:
-            #         neigh_orders[faces[i,1], np.where(neigh_orders[faces[i,1]] == -1)[0][0]] = faces[i,2]
-            #     if faces[i,1] not in neigh_orders[faces[i,2]]:
-            #         neigh_orders[faces[i,2], np.where(neigh_orders[faces[i,2]] == -1)[0][0]] = faces[i,1]
-            #     if faces[i,0] not in neigh_orders[faces[i,2]]:
-            #         neigh_orders[faces[i,2], np.where(neigh_orders[faces[i,2]] == -1)[0][0]] = faces[i,0]
-                   
-        elif fast:
-            pass
+    if not fast:
+        if neigh_orders is None:
+            if faces is not None:
+                assert faces.shape[1] == 4, "faces shape is wrong, should be N*4"
+                assert (faces[:,0] == 3).sum() == faces.shape[0], "the first column of faces should be all 3"
+                faces = faces[:, 1:]
+                
+                num_vers = vertices_fix.shape[0]
+                neigh_unsorted_orders = []
+                for i in range(num_vers):
+                    neigh_unsorted_orders.append(set())
+                for i in range(faces.shape[0]):
+                    face = faces[i]
+                    neigh_unsorted_orders[face[0]].add(face[1])
+                    neigh_unsorted_orders[face[0]].add(face[2])
+                    neigh_unsorted_orders[face[1]].add(face[0])
+                    neigh_unsorted_orders[face[1]].add(face[2])
+                    neigh_unsorted_orders[face[2]].add(face[0])
+                    neigh_unsorted_orders[face[2]].add(face[1])
+                
+                neigh_orders = neigh_unsorted_orders
+                        
+                # deprecated, too slow, use above set() method
+                # for i in range(faces.shape[0]):
+                #     if faces[i,1] not in neigh_orders[faces[i,0]]:
+                #         neigh_orders[faces[i,0], np.where(neigh_orders[faces[i,0]] == -1)[0][0]] = faces[i,1]
+                #     if faces[i,2] not in neigh_orders[faces[i,0]]:
+                #         neigh_orders[faces[i,0], np.where(neigh_orders[faces[i,0]] == -1)[0][0]] = faces[i,2]
+                #     if faces[i,0] not in neigh_orders[faces[i,1]]:
+                #         neigh_orders[faces[i,1], np.where(neigh_orders[faces[i,1]] == -1)[0][0]] = faces[i,0]
+                #     if faces[i,2] not in neigh_orders[faces[i,1]]:
+                #         neigh_orders[faces[i,1], np.where(neigh_orders[faces[i,1]] == -1)[0][0]] = faces[i,2]
+                #     if faces[i,1] not in neigh_orders[faces[i,2]]:
+                #         neigh_orders[faces[i,2], np.where(neigh_orders[faces[i,2]] == -1)[0][0]] = faces[i,1]
+                #     if faces[i,0] not in neigh_orders[faces[i,2]]:
+                #         neigh_orders[faces[i,2], np.where(neigh_orders[faces[i,2]] == -1)[0][0]] = faces[i,0]
+                       
+            else:
+                neigh_orders = get_neighs_order(abspath+'/neigh_indices/adj_mat_order_'+ str(vertices_fix.shape[0]) +'_rotated_0.mat')
+                neigh_orders = neigh_orders.reshape(vertices_fix.shape[0], 7)
         else:
-            neigh_orders = get_neighs_order(abspath+'/neigh_indices/adj_mat_order_'+ str(vertices_fix.shape[0]) +'_rotated_0.mat')
             neigh_orders = neigh_orders.reshape(vertices_fix.shape[0], 7)
-    else:
-        neigh_orders = neigh_orders.reshape(vertices_fix.shape[0], 7)
-    
+        
    
     
     inter_indices = np.zeros((vertices_inter.shape[0], 3), dtype=np.int32)
@@ -407,7 +418,7 @@ def resampleSphereSurf(vertices_fix, vertices_inter, feat, faces=None,
 #        inter_indices[i,:] = singleVertexInterpo(vertices_inter[i,:], vertices_fix, tree, neigh_orders, feat)
        
 
-    """ multiple processes method: 163842: 9.6s, 40962: 2.8s, 10242: 1.0s, 2562: 0.28s """
+    """ multiple processes method: 163842:  s, 40962: 2.8s, 10242: 1.0s, 2562: 0.28s """
     pool = multiprocessing.Pool()
     cpus = multiprocessing.cpu_count()
     vertexs_num_per_cpu = math.ceil(vertices_inter.shape[0]/cpus)
@@ -416,7 +427,7 @@ def resampleSphereSurf(vertices_fix, vertices_inter, feat, faces=None,
     for i in range(cpus):
         results.append(pool.apply_async(multiVertexInterpo, 
                                         args=(vertices_inter[i*vertexs_num_per_cpu:(i+1)*vertexs_num_per_cpu,:],
-                                              vertices_fix, tree, neigh_orders, feat, fast, threshold, k_threshold, ring_threshold)))
+                                              vertices_fix, tree, neigh_orders, feat, fast, threshold, ring_threshold)))
 
     pool.close()
     pool.join()
@@ -427,12 +438,18 @@ def resampleSphereSurf(vertices_fix, vertices_inter, feat, faces=None,
     v0 = vertices_fix[inter_indices[:, 0]]
     v1 = vertices_fix[inter_indices[:, 1]]    
     v2 = vertices_fix[inter_indices[:, 2]]
-    normal = np.cross(v1-v2, v0-v2, axis=1)
+    normal = np.cross(v1-v0, v2-v0, axis=1)
     vertex_proj = np.sum(v0*normal, axis=1, keepdims=True) / np.sum(vertices_inter*normal, axis=1, keepdims=True) * vertices_inter
+    
+    tmp_index = np.argwhere(np.isnan(vertex_proj))[:, 0]  # in case that normal is [0,0,0]
+    
     area_12P = np.linalg.norm(np.cross(v2-vertex_proj, v1-vertex_proj, axis=1), axis=1, keepdims=True)/2.0
     area_02P = np.linalg.norm(np.cross(v2-vertex_proj, v0-vertex_proj, axis=1), axis=1, keepdims=True)/2.0
     area_01P = np.linalg.norm(np.cross(v1-vertex_proj, v0-vertex_proj, axis=1), axis=1, keepdims=True)/2.0
     inter_weights = np.concatenate(([area_12P, area_02P, area_01P]), axis=1)
+    
+    inter_weights[tmp_index] = np.array([1,0,0])    # in case that normal is [0,0,0]
+    
     inter_weights = inter_weights / np.sum(inter_weights, axis=1, keepdims=True)
 
     feat_inter = np.sum(np.multiply(feat[inter_indices], np.repeat(inter_weights[:,:,np.newaxis], feat.shape[1], axis=2)), axis=1)

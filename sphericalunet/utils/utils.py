@@ -17,12 +17,38 @@ import math, multiprocessing, os
 
 abspath = os.path.abspath(os.path.dirname(__file__))
 
-def normalize(data, norm_method='SD', mean=None, std=None, mi=None, ma=None):
+
+def S3_normalize(data, norm_method='SD', mean=None, std=None, mi=None, ma=None):
     """
-    data: 163842 * 1, numpy array
+
+    Parameters
+    ----------
+    data : Nx1 numpy array,
+        DESCRIPTION.
+    norm_method : TYPE, optional
+        DESCRIPTION. The default is 'SD'.
+    mean : TYPE, optional
+        DESCRIPTION. The default is None.
+    std : TYPE, optional
+        DESCRIPTION. The default is None.
+    mi : TYPE, optional
+        DESCRIPTION. The default is None.
+    ma : TYPE, optional
+        DESCRIPTION. The default is None.
+
+    Raises
+    ------
+    NotImplementedError
+        DESCRIPTION.
+
+    Returns
+    -------
+    data : TYPE
+        DESCRIPTION.
+
     """
     if norm_method=='SD':
-        data = data -  np.median(data)
+        data = data - np.median(data)
         data = data/np.std(data)
         
         index = np.where(data < -3)[0]
@@ -37,7 +63,7 @@ def normalize(data, norm_method='SD', mean=None, std=None, mi=None, ma=None):
         data[index] = 3 + (1 - np.exp(3 - np.abs(data[index])))
         
     elif norm_method=='MinMax':
-        raise NotImplementedError('e')
+        raise NotImplementedError('NotImplementedError')
     elif norm_method=='Gaussian':
         data = (data - data.mean())/data.std()
     elif norm_method=='PriorGaussian':
@@ -47,7 +73,7 @@ def normalize(data, norm_method='SD', mean=None, std=None, mi=None, ma=None):
         assert mi is not None and ma is not None, "PriorMinMax needs prior min and max"
         data = (data - mi)/(ma - mi) * 2. - 1.
     else:
-        raise NotImplementedError('e')
+        raise NotImplementedError('NotImplementedError')
         
     return data
 
@@ -75,6 +101,35 @@ def get_neighs_order(order_path):
     return neigh_orders
 
 
+def Get_swin_matrices_2order():
+    def get_matrices(num_vertices):
+        count_matrix = np.load(abspath + "/transformer_matrices/count_2order_%s_vertices.npy" % num_vertices)
+        reverse_matrix = np.load(abspath + "/transformer_matrices/reverse_2order_%s_vertices.npy" % num_vertices)
+        top_matrix = np.load(abspath + "/transformer_matrices/top_patches_2order_%s_vertices.npy" % num_vertices)
+        down_matrix = np.load(abspath + "/transformer_matrices/down_patches_2order_%s_vertices_2.npy" % num_vertices)
+        return {"count": count_matrix.astype(np.int32), "reverse": reverse_matrix.astype(np.int32), "top": top_matrix.astype(np.int32), "down":down_matrix.astype(np.int32)}
+    matrices_162 = get_matrices("162")
+    matrices_642 = get_matrices("642")
+    matrices_2562 = get_matrices("2562")
+    matrices_10242 = get_matrices("10242")
+    matrices_40962 = get_matrices("40962")
+    return matrices_40962, matrices_10242, matrices_2562, matrices_642, matrices_162
+
+	
+# def Get_swin_matrices_4order():
+#     def get_matrices(vertices):
+#         count_matrix = np.load("./transformer_matrices/count_4order_%s_vertices.npy" % vertices)
+#         reverse_matrix = np.load("./transformer_matrices/reverse_4order_%s_vertices.npy" % vertices)
+#         top_matrix = np.load("./transformer_matrices/top_patches_4order_%s_vertices.npy" % vertices)
+#         down_matrix = np.load("./transformer_matrices/down_patches_4order_%s_vertices_2.npy" % vertices)
+#         return {"count": count_matrix, "reverse": reverse_matrix, "top": top_matrix, "down":down_matrix}
+#     matrices_642 = get_matrices("642")
+#     matrices_2562 = get_matrices("2562")
+#     matrices_10242 = get_matrices("10242")
+#     matrices_40962 = get_matrices("40962")
+#     return matrices_40962, matrices_10242, matrices_2562, matrices_642 
+
+
 def Get_upconv_index(rotated=0):
     
     upconv_top_index_163842, upconv_down_index_163842 = get_upconv_index(abspath+'/neigh_indices/adj_mat_order_163842_rotated_' + str(rotated) + '.mat')
@@ -84,7 +139,8 @@ def Get_upconv_index(rotated=0):
     upconv_top_index_642, upconv_down_index_642 = get_upconv_index(abspath+'/neigh_indices/adj_mat_order_642_rotated_' + str(rotated) + '.mat')
     upconv_top_index_162, upconv_down_index_162 = get_upconv_index(abspath+'/neigh_indices/adj_mat_order_162_rotated_' + str(rotated) + '.mat')
     
-    return upconv_top_index_163842, upconv_down_index_163842, upconv_top_index_40962, upconv_down_index_40962, upconv_top_index_10242, upconv_down_index_10242,  upconv_top_index_2562, upconv_down_index_2562,  upconv_top_index_642, upconv_down_index_642, upconv_top_index_162, upconv_down_index_162 
+    #TODO: return tuples of each level
+    return upconv_top_index_163842, upconv_down_index_163842, upconv_top_index_40962, upconv_down_index_40962, upconv_top_index_10242, upconv_down_index_10242,  upconv_top_index_2562, upconv_down_index_2562,  upconv_top_index_642, upconv_down_index_642, upconv_top_index_162, upconv_down_index_162
 
 
 def get_upconv_index(order_path):  
@@ -128,12 +184,165 @@ def get_upsample_order(n_vertex):
     return upsample_neighs_order  
 
 
-def get_par_36_to_fs_vec():
-    """ Preprocessing for parcellatiion label """
 
-    a = sio.loadmat(abspath+'/neigh_indices/par_FS_to_par_vec.mat')
-    a = a['pa']
-    return a[:,0:3]
+def get_par_fs_lookup_table():
+    """ lookup_table for parcellatiion label,
+        copy from freesurfer/FreeSurferColorLUT.txt
+    """
+    
+    lookup_table_vec = np.array([25,  5,  25,
+                                 25 ,100 , 40,
+                                 125 ,100, 160,
+                                 100 , 25,   0,
+                                 120  ,70,  50,
+                                 220  ,20, 100,
+                                 220,  20,  10,
+                                 180, 220, 140,
+                                 220,  60, 220,
+                                 180,  40, 120,
+                                 140,  20, 140,
+                                 20  ,30 ,140,
+                                 35 , 75,  50,
+                                 225, 140, 140,
+                                 200,  35,  75,
+                                 160, 100,  50,
+                                 20 ,220 , 60,
+                                 60 ,220 , 60,
+                                 220, 180, 140,
+                                 20 ,100 , 50,
+                                 220,  60,  20,
+                                 120, 100,  60,
+                                 220,  20,  20,
+                                 220, 180, 220,
+                                 60 , 20 ,220,
+                                 160, 140, 180,
+                                 80 , 20, 140,
+                                 75 , 50, 125,
+                                 20 ,220, 160,
+                                 20 ,180, 140,
+                                 140, 220, 220,
+                                 80 ,160 , 20,
+                                 100,   0, 100,
+                                 70 , 20, 170,
+                                 150, 150, 200,
+                                 255, 192 , 32 ])
+    lookup_table_vec = lookup_table_vec.reshape([36,3])
+    
+    lookup_table_scalar = np.array([1639705,
+                                    2647065,
+                                    10511485,
+                                    6500,
+                                    3294840,
+                                    6558940,
+                                    660700,
+                                    9231540,
+                                    14433500,
+                                    7874740,
+                                    9180300,
+                                    9182740,
+                                    3296035,
+                                    9211105,
+                                    4924360,
+                                    3302560,
+                                    3988500,
+                                    3988540,
+                                    9221340,
+                                    3302420,
+                                    1326300,
+                                    3957880,
+                                    1316060,
+                                    14464220,
+                                    14423100,
+                                    11832480,
+                                    9180240,
+                                    8204875,
+                                    10542100,
+                                    9221140,
+                                    14474380,
+                                    1351760,
+                                    6553700,
+                                    11146310,
+                                    13145750,
+                                    2146559])
+    
+    lookup_table_name =['unknown',
+                        'bankssts' ,
+                        'caudalanteriorcingulate',
+                        'caudalmiddlefrontal',
+                        'corpuscallosum',
+                        'cuneus',
+                        'entorhinal',
+                        'fusiform' ,
+                        'inferiorparietal' ,
+                        'inferiortemporal' ,
+                        'isthmuscingulate' ,
+                        'lateraloccipital' ,
+                        'lateralorbitofrontal' ,
+                        'lingual' ,
+                        'medialorbitofrontal' ,
+                        'middletemporal' ,
+                        'parahippocampal'  ,
+                        'paracentral' ,
+                        'parsopercularis' ,
+                        'parsorbitalis' ,
+                        'parstriangularis' ,
+                        'pericalcarine' ,
+                        'postcentral' ,
+                        'posteriorcingulate' ,
+                        'precentral' ,
+                        'precuneus',
+                        'rostralanteriorcingulate' ,
+                        'rostralmiddlefrontal' ,
+                        'superiorfrontal' ,
+                        'superiorparietal' ,
+                        'superiortemporal' ,
+                        'supramarginal' ,
+                        'frontalpole',
+                        'temporalpole' ,
+                        'transversetemporal', 
+                        'insula']
+    
+    return lookup_table_vec, lookup_table_scalar, lookup_table_name
+
+
+
+
+def convert_par_fs_vec_to_par_int(parc_vec):
+    """
+    Convert parcellation label from rgb vector to single number from 0 to 35
+
+    Parameters
+    ----------
+    par_vec : numpy array
+        size: N x 3
+        type: int.
+
+    Returns
+    -------
+    None.
+
+    """
+    assert parc_vec.shape[1] == 3, "size not correct"
+    a = get_par_36_to_fs_vec()
+    parc_int = np.where((parc_vec[:, np.newaxis, :] == a).all(2))[1]
+    return parc_int
+
+def convert_par_fs_int_to_par_vec(parc_int):
+    """
+    Convert parcellation label from int [0, 35] to rgb vector 
+
+    Parameters
+    ----------
+    par_vec : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    None.
+
+    """
+    a = get_par_36_to_fs_vec()
+    return a[parc_int]
 
 
 def get_par_35_to_fs_vec():
@@ -217,19 +426,6 @@ def get_patch_indices(n_vertex):
     
     return indices, weights
         
-
-def get_z_weight(n_vertex, rotated=0):
-    sphere = read_vtk(abspath+'/neigh_indices/sphere_'+str(n_vertex)+'_rotated_'+str(rotated)+'.vtk')
-    fixed_xyz = sphere['vertices']/100.0
-    z_weight = np.abs(fixed_xyz[:,2])
-    index_1 = (z_weight <= 1/np.sqrt(2)).nonzero()[0]
-    index_2 = (z_weight > 1/np.sqrt(2)).nonzero()[0]
-    assert len(index_1) + len(index_2) == n_vertex, "error"
-    z_weight[index_1] = 1.0
-    z_weight[index_2] = z_weight[index_2] * (-1./(1.-1./np.sqrt(2))) + 1./(1.-1./np.sqrt(2))
-    
-    return z_weight
-
 
 def get_vertex_dis(n_vertex):
     vertex_dis_dic = {42: 54.6,

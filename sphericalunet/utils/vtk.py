@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+
+2022.9.24, update, modify smooth_surface_map to support multiple channel features.
+
 Created on Wed Nov 20 09:17:52 2019
 
 @author: Fenqiang Zhao, https://github.com/zhaofenqiang
@@ -15,6 +18,7 @@ import copy, os
 import scipy.io as sio 
 import math, multiprocessing
 
+
 from sklearn.neighbors import KDTree
 
 abspath = os.path.abspath(os.path.dirname(__file__))
@@ -26,23 +30,22 @@ def read_vtk(in_file):
     in_file: string,  the filename
     Out: dictionary, 'vertices', 'faces', 'curv', 'sulc', ...
     """
-
     polydata = pyvista.read(in_file)
- 
+    
     n_faces = polydata.n_faces
     vertices = np.array(polydata.points)  # get vertices coordinate
     
     # only for triangles polygons data
     faces = np.array(polydata.GetPolys().GetData())  # get faces connectivity
-    assert len(faces)/4 == n_faces, "faces number is not consistent!"
+    assert len(faces)/4 == n_faces, "faces number is wrong!"
     faces = np.reshape(faces, (n_faces,4))
     
     data = {'vertices': vertices,
             'faces': faces
             }
     
-    point_arrays = polydata.point_arrays
-    for key, value in point_arrays.items():
+    point_data = polydata.point_data
+    for key, value in point_data.items():
         if value.dtype == 'uint32':
             data[key] = np.array(value).astype(np.int64)
         elif  value.dtype == 'uint8':
@@ -53,29 +56,21 @@ def read_vtk(in_file):
     return data
     
 
-def write_vtk(in_dic, file):
+def write_vtk(in_dic, file, binary=True):
     """
     Write .vtk POLYDATA file
     
     in_dic: dictionary, vtk data
     file: string, output file name
     """
-    assert 'vertices' in in_dic, "output vtk data does not have vertices!"
-    assert 'faces' in in_dic, "output vtk data does not have faces!"
-    
-    data = copy.deepcopy(in_dic)
-    
-    vertices = data['vertices']
-    faces = data['faces']
-    surf = pyvista.PolyData(vertices, faces)
-    
-    del data['vertices']
-    del data['faces']
-    for key, value in data.items():
-        surf.point_arrays[key] = value
+    surf = pyvista.PolyData(in_dic['vertices'], in_dic['faces'])
+    for key, value in in_dic.items():
+        if key == 'vertices' or key == 'faces':
+            continue
+        surf.point_data[key] = value
 
-    surf.save(file, binary=False)  
-    
+    surf.save(file, binary=binary)
+     
     
 def write_vertices(in_ver, file):
     """
@@ -92,21 +87,6 @@ def write_vertices(in_ver, file):
         f.write("DATASET POLYDATA \n")
         f.write("POINTS " + str(len(in_ver)) + " float \n")
         np.savetxt(f, in_ver)
-
-
-def remove_field(data, fields):
-    """
-    remove the field attribute in data
-    
-    fileds: list of strings, to remove
-    data: dic, vtk dictionary
-    """
-    for field in fields:
-        if field in data.keys():
-            del data[field]
-    
-    return data
-
 
 
 def multiVertexLabel(vertexs, vertices, tree, label):
@@ -136,9 +116,13 @@ def resample_label(vertices_fix, vertices_inter, label, multiprocess=True):
         DESCRIPTION.
 
     """
-    assert len(vertices_fix) == len(label), "length of label should be consistent with the vertices on orginal sphere."
+    assert len(vertices_fix) == len(label), "length of label should be "+\
+        "consistent with the length of vertices on orginal sphere."
     if len(label.shape) == 1:
         label = label[:,np.newaxis]
+    
+    vertices_fix = vertices_fix / np.linalg.norm(vertices_fix, axis=1)[:,np.newaxis]  # normalize to 1
+    vertices_inter = vertices_inter / np.linalg.norm(vertices_inter, axis=1)[:,np.newaxis]  # normalize to 1
     
     tree = KDTree(vertices_fix, leaf_size=10)  # build kdtree
     label_inter = np.zeros((len(vertices_inter), label.shape[1])).astype(np.int32)
@@ -178,13 +162,18 @@ def smooth_surface_map(vertices, feat, num_iter, neigh_orders=None):
     assert vertices.shape[0] == feat.shape[0], "vertices number is different from feature number"
     assert vertices.shape[0] in [42,162,642,2562,10242,40962,163842], "only support icosahedron discretized spheres"
     
+    if len(feat.shape) == 1:
+        feat = feat[:, np.newaxis]
+    
     if neigh_orders is None:
         neigh_orders = get_neighs_order(abspath+'/neigh_indices/adj_mat_order_'+ str(int(feat.shape[0])) +'_rotated_0.mat')
     assert neigh_orders.shape[0] == vertices.shape[0] * 7, "neighbor_orders is not right"      
         
     smooth_kernel = np.array([1/12, 1/12, 1/12, 1/12, 1/12, 1/12, 1/2])
+    smooth_kernel = np.repeat(smooth_kernel[:, np.newaxis], feat.shape[1], axis=1)
     for i in range(num_iter):
-        feat = np.matmul(feat[neigh_orders].reshape((feat.shape[0], 7)), smooth_kernel)
+        tmp = np.multiply(feat[neigh_orders].reshape((feat.shape[0], 7, feat.shape[1])), smooth_kernel)
+        feat = np.sum(tmp, axis=1)
     
     return feat
 
@@ -253,4 +242,3 @@ def faces_to_neigh_orders(faces):
 #
 #
 #plt.show()
-        
