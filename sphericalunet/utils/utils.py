@@ -79,19 +79,21 @@ def S3_normalize(data, norm_method='SD', mean=None, std=None, mi=None, ma=None):
 
 
 def Get_neighs_order(rotated=0):
-    neigh_orders_163842 = get_neighs_order(abspath +'/neigh_indices/adj_mat_order_163842_rotated_' + str(rotated) + '.mat')
-    neigh_orders_40962 = get_neighs_order(abspath +'/neigh_indices/adj_mat_order_40962_rotated_' + str(rotated) + '.mat')
-    neigh_orders_10242 = get_neighs_order(abspath +'/neigh_indices/adj_mat_order_10242_rotated_' + str(rotated) + '.mat')
-    neigh_orders_2562 = get_neighs_order(abspath +'/neigh_indices/adj_mat_order_2562_rotated_' + str(rotated) + '.mat')
-    neigh_orders_642 = get_neighs_order(abspath +'/neigh_indices/adj_mat_order_642_rotated_' + str(rotated) + '.mat')
-    neigh_orders_162 = get_neighs_order(abspath +'/neigh_indices/adj_mat_order_162_rotated_' + str(rotated) + '.mat')
-    neigh_orders_42 = get_neighs_order(abspath +'/neigh_indices/adj_mat_order_42_rotated_' + str(rotated) + '.mat')
-    neigh_orders_12 = get_neighs_order(abspath +'/neigh_indices/adj_mat_order_12_rotated_' + str(rotated) + '.mat')
+    neigh_orders_163842 = get_neighs_order(163842, rotated)
+    neigh_orders_40962 = get_neighs_order(40962, rotated)
+    neigh_orders_10242 = get_neighs_order(10242, rotated)
+    neigh_orders_2562 = get_neighs_order(2562, rotated)
+    neigh_orders_642 = get_neighs_order(642, rotated)
+    neigh_orders_162 = get_neighs_order(162, rotated)
+    neigh_orders_42 = get_neighs_order(42, rotated)
+    neigh_orders_12 = get_neighs_order(12, rotated)
     
-    return neigh_orders_163842, neigh_orders_40962, neigh_orders_10242, neigh_orders_2562, neigh_orders_642, neigh_orders_162, neigh_orders_42, neigh_orders_12
+    return neigh_orders_163842, neigh_orders_40962, neigh_orders_10242,\
+        neigh_orders_2562, neigh_orders_642, neigh_orders_162, neigh_orders_42, neigh_orders_12
   
-def get_neighs_order(order_path):
-    adj_mat_order = sio.loadmat(order_path)
+def get_neighs_order(n_vertex, rotated=0):
+    adj_mat_order = sio.loadmat(abspath +'/neigh_indices/adj_mat_order_'+ \
+                                str(n_vertex) +'_rotated_' + str(rotated) + '.mat')
     adj_mat_order = adj_mat_order['adj_mat_order']
     neigh_orders = np.zeros((len(adj_mat_order), 7))
     neigh_orders[:,0:6] = adj_mat_order-1
