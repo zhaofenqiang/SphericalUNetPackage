@@ -9,6 +9,8 @@ It can be installed from PyPI using:
 pip install sphericalunet
 ```
 
+Or download packed read-to-use tools from [Nitrc](https://www.nitrc.org/projects/infantsurfparc)
+
 ## Main tools
 [**I/O vtk file**](https://github.com/zhaofenqiang/SphericalUNetPackage/blob/main/sphericalunet/utils/vtk.py). Python function for reading and writing .vtk surface file. Example code:
 ```

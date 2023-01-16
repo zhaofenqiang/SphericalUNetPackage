@@ -7,7 +7,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="sphericalunet",
-    version="v1.2.0",
+    version="v1.2.2",
     author="Fenqiang Zhao",
     author_email="zhaofenqiang0221@gmail.com",
     description="This is the tools for Spherical U-Net on spherical cortical surfaces",
@@ -17,10 +17,10 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: MIT License",
+        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3.6',
+    python_requires='>=3.7',
     install_requires=[
         'numpy',
         'scipy'
