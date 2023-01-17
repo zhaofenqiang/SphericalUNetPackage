@@ -261,7 +261,7 @@ class patch_merging_layer_average(nn.Module):
         x = torch.Tensor.mean(x, dim=1)
         x = self.norm(self.proj(x))
         return x
-
+        
 
 class SUnet(nn.Module):
     """Define the Spherical UNet structure
@@ -295,7 +295,6 @@ class SUnet(nn.Module):
         chs = [in_ch]
         for i in range(n_res):
             chs.append(2**i*complex_chs)
-        
         conv_layer = onering_conv_layer
         
         self.down = nn.ModuleList([])
@@ -324,7 +323,7 @@ class SUnet(nn.Module):
         for i in range(self.n_res-1):
             x = self.up[i](x, xs[self.n_res-1-i])
 
-        x = self.outc(x) # N * 2
+        x = self.outc(x)
         return x
         
     
@@ -416,221 +415,6 @@ class UNet18_40k_SWIN_pred_bigtail_average(nn.Module):
         x = self.outc(x)
         x = x.permute(0, 2, 1)
         return x
-
-
-    
-class JointRegAndParc(nn.Module):
-    """Joint registration and parcellation network
-
-    """ 
-    def __init__(self, in_ch, out_parc_ch, level=7, n_res=5, rotated=0, complex_chs=8):
-        """ Initialize the Spherical UNet.
-
-        Parameters:
-            in_ch (int) - - input features/channels
-            level (int) - - input surface's icosahedron level. default: 7 with 40962 vertices
-                            2:42, 3:162, 4:642, 5:2562, 6:10242
-            n_res (int) - - the total resolution levels of u-net, default: 5
-            rotated (int) - -  the sphere is original (0), rotated 90 degrees along y axis (0), or 
-                               90 degrees along x axis (1)
-            complex_chs (int) - - intermidiate channels for controlling the total paprameters/complexity of the network
-        """
-        super(JointRegAndParc, self).__init__()
-        
-        assert (level-n_res) >=1, "number of resolution levels in unet should be at least 1 smaller than input level"
-        assert n_res >=2, "number of resolution levels should be larger than 2"     
-        assert rotated in [0, 1, 2], "rotated should be in [0, 1, 2]"
-        
-        self.n_res = n_res
-        
-        neigh_orders = Get_neighs_order(rotated)
-        neigh_orders = neigh_orders[8-level:8-level+n_res]
-        upconv_indices = Get_upconv_index(rotated)
-        upconv_indices = upconv_indices[16-2*level:16-2*level+(n_res-1)*2]
-        
-        chs = [in_ch]
-        for i in range(n_res):
-            chs.append(2**i*complex_chs)
-        
-        self.down = nn.ModuleList([])
-        for i in range(n_res):
-            if i == 0:
-                self.down.append(down_block(onering_conv_layer, chs[i], chs[i+1], neigh_orders[i], None, True))
-            else:
-                self.down.append(down_block(onering_conv_layer, chs[i], chs[i+1], neigh_orders[i], neigh_orders[i-1]))
-       
-        self.up_parc = nn.ModuleList([])
-        for i in range(n_res-1):
-            self.up_parc.append(up_block(onering_conv_layer, chs[n_res-i], chs[n_res-1-i],
-                                    neigh_orders[n_res-2-i], upconv_indices[(n_res-2-i)*2], upconv_indices[(n_res-2-i)*2+1]))
-        self.outc_parc = nn.Linear(chs[1], out_parc_ch)
-                
-        
-        self.up_reg = nn.ModuleList([])
-        self.up_reg.append(up_block(onering_conv_layer, chs[n_res]*2, chs[n_res-1],
-                                    neigh_orders[n_res-2], upconv_indices[(n_res-2)*2], upconv_indices[(n_res-2)*2+1],
-                                    joint_ch=chs[n_res-1]*3))
-        for i in range(1, n_res-1):
-            self.up_reg.append(up_block(onering_conv_layer, chs[n_res-i], chs[n_res-1-i],
-                                        neigh_orders[n_res-2-i], upconv_indices[(n_res-2-i)*2], upconv_indices[(n_res-2-i)*2+1],
-                                        joint_ch=chs[n_res-1-i]*3))
-    
-        self.outc_reg = nn.Linear(chs[1], 2)
-        
-        
-        
-    def forward(self, x1, x2):
-        
-        # Surface 1
-        x1s = [x1]
-        for i in range(self.n_res):
-            x1s.append(self.down[i](x1s[i]))
-            
-        # parc
-        x = x1s[-1]
-        for i in range(self.n_res-1):
-            x = self.up_parc[i](x, x1s[self.n_res-1-i])
-        x1_parc = self.outc_parc(x) # N * 36
-                
-        # Surface 2
-        x2s = [x2]
-        for i in range(self.n_res):
-            x2s.append(self.down[i](x2s[i]))
-            
-        # parc
-        x = x2s[-1]
-        for i in range(self.n_res-1):
-            x = self.up_parc[i](x, x2s[self.n_res-1-i])
-        x2_parc = self.outc_parc(x) # N * 36
-        
-        # reg
-        ys = []
-        for i in range(len(x1s)):
-            ys.append(torch.cat((x1s[i], x2s[i]), dim=1))
-            
-        x = ys[-1]
-        for i in range(self.n_res-1):
-            x = self.up_reg[i](x, ys[self.n_res-1-i])
-
-        x_reg = self.outc_reg(x) # N * 2
-    
-        return x1_parc, x2_parc, x_reg
-    
-
-class LongJointRegAndParc(nn.Module):
-    """Joint registration and parcellation network
-
-    """ 
-    def __init__(self, in_ch, out_parc_ch, level=7, n_res=5, rotated=0, complex_chs=8, num_long_scans=8):
-        """ Initialize the Spherical UNet.
-
-        Parameters:
-            in_ch (int) - - input features/channels
-            level (int) - - input surface's icosahedron level. default: 7 with 40962 vertices
-                            2:42, 3:162, 4:642, 5:2562, 6:10242
-            n_res (int) - - the total resolution levels of u-net, default: 5
-            rotated (int) - -  the sphere is original (0), rotated 90 degrees along y axis (0), or 
-                               90 degrees along x axis (1)
-            complex_chs (int) - - intermidiate channels for controlling the total paprameters/complexity of the network
-        """
-        super(LongJointRegAndParc, self).__init__()
-        
-        assert (level-n_res) >=1, "number of resolution levels in unet should be at least 1 smaller than input level"
-        assert n_res >=2, "number of resolution levels should be larger than 2"     
-        assert rotated in [0, 1, 2], "rotated should be in [0, 1, 2]"
-        
-        self.n_res = n_res
-        self.num_long_scans = num_long_scans
-        self.in_ch = in_ch
-        
-        neigh_orders = Get_neighs_order(rotated)
-        neigh_orders = neigh_orders[8-level:8-level+n_res]
-        upconv_indices = Get_upconv_index(rotated)
-        upconv_indices = upconv_indices[16-2*level:16-2*level+(n_res-1)*2]
-        
-        chs = [in_ch]
-        for i in range(n_res):
-            chs.append(2**i*complex_chs)
-        
-        self.down = nn.ModuleList([])
-        for i in range(n_res):
-            if i == 0:
-                self.down.append(down_block(onering_conv_layer, chs[i], chs[i+1], neigh_orders[i], None, True))
-            else:
-                self.down.append(down_block(onering_conv_layer, chs[i], chs[i+1], neigh_orders[i], neigh_orders[i-1]))
-       
-        self.up_parc = nn.ModuleList([])
-        for i in range(n_res-1):
-            self.up_parc.append(up_block(onering_conv_layer, chs[n_res-i], chs[n_res-1-i],
-                                    neigh_orders[n_res-2-i], upconv_indices[(n_res-2-i)*2], upconv_indices[(n_res-2-i)*2+1]))
-        self.outc_parc = nn.Linear(chs[1], out_parc_ch)
-                
-        
-        self.up_reg = nn.ModuleList([])
-        self.up_reg.append(up_block(onering_conv_layer, chs[n_res]*(num_long_scans+1), chs[n_res-1],
-                                    neigh_orders[n_res-2], upconv_indices[(n_res-2)*2], upconv_indices[(n_res-2)*2+1],
-                                    joint_ch=chs[n_res-1]*(num_long_scans+2)))
-        for i in range(1, n_res-1):
-            self.up_reg.append(up_block(onering_conv_layer, chs[n_res-i], chs[n_res-1-i],
-                                        neigh_orders[n_res-2-i], upconv_indices[(n_res-2-i)*2], upconv_indices[(n_res-2-i)*2+1],
-                                        joint_ch=chs[n_res-1-i]*(num_long_scans+2)))
-    
-        self.outc_reg = nn.Linear(chs[1], num_long_scans*2)
-        
-        
-        
-    def forward(self, x, x2):
-        """
-        x2 is the atlas features
-
-        """
-        
-        # encoder for surface 1 to self.num_long_scans
-        xis = []
-        for i in range(self.num_long_scans):
-            xs = [x[i]]
-            for j in range(self.n_res):
-                xs.append(self.down[j](xs[j]))
-            xis.append(xs)
-        
-        # parc
-        xs_parc = []
-        for i in range(self.num_long_scans):
-            xs = xis[i]
-            y = xs[-1]
-            for j in range(self.n_res-1):
-                y = self.up_parc[j](y, xs[self.n_res-1-j])
-            xs_parc.append(self.outc_parc(y)) # 6* N * 36
-            
-        
-        # Surface 2
-        x2s = [x2]
-        for i in range(self.n_res):
-            x2s.append(self.down[i](x2s[i]))
-        # parc
-        z = x2s[-1]
-        for i in range(self.n_res-1):
-            z = self.up_parc[i](z, x2s[self.n_res-1-i])
-        x2_parc = self.outc_parc(z) # N * 36
-        
-        
-        # reg
-        feats = []
-        for i in range(len(xis[0])):
-            tmp = x2s[i]
-            for j in range(self.num_long_scans):
-                tmp = torch.cat((tmp, xis[j][i]), dim=1)
-            feats.append(tmp)
-            
-        u = feats[-1]
-        for i in range(self.n_res-1):
-            u = self.up_reg[i](u, feats[self.n_res-1-i])
-
-        x_reg = self.outc_reg(u) # num_long_scans x 2
-    
-        return xs_parc, x2_parc, x_reg
-
-
 
 
 class svgg(nn.Module):

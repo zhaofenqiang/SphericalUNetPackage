@@ -156,7 +156,7 @@ def smooth_surface_map(vertices, feat, num_iter, neigh_orders=None):
     
     vertices: N*3 numpy array, surface vertices
     neigh_orders: M*3 numpy array, the sphere to be interpolated
-    feat: [N, 1], numpy array, the surface map to be smoothed
+    feat: [N, C], numpy array, the surface map to be smoothed
     num_iter: numbers of smooth operation
     """
     assert vertices.shape[0] == feat.shape[0], "vertices number is different from feature number"
