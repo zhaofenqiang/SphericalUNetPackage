@@ -24,7 +24,7 @@ For matlab users, please refer to this [issue](https://github.com/zhaofenqiang/S
 
 [**Layers**](https://github.com/zhaofenqiang/SphericalUNetPackage/blob/main/sphericalunet/models/layers.py) provide basic spherical convolution, pooling, upsampling layers for constructing spherical convolutional neural networks.
 
-[**Models**](https://github.com/zhaofenqiang/SphericalUNetPackage/blob/main/sphericalunet/models/models.py) provide some baseline spherical convolutional neural networks, e.g., [Spherical U-Net](https://github.com/zhaofenqiang/SphericalUNetPackage/blob/99963658ab4690c198b337aad99a099791753902/sphericalunet/models/models.py#L266), [Spherical VGG](https://github.com/zhaofenqiang/SphericalUNetPackage/blob/99963658ab4690c198b337aad99a099791753902/sphericalunet/models/models.py#L420), [Spherical ResNet](https://github.com/zhaofenqiang/SphericalUNetPackage/blob/99963658ab4690c198b337aad99a099791753902/sphericalunet/models/models.py#L494), Spherical CycleGAN, etc.
+[**Models**](https://github.com/zhaofenqiang/SphericalUNetPackage/blob/main/sphericalunet/models/models.py) provide some baseline spherical convolutional neural networks, e.g., [Spherical U-Net](https://github.com/zhaofenqiang/SphericalUNetPackage/blob/99963658ab4690c198b337aad99a099791753902/sphericalunet/models/models.py#L266), [Spherical VGG](https://github.com/zhaofenqiang/SphericalUNetPackage/blob/99963658ab4690c198b337aad99a099791753902/sphericalunet/models/models.py#L420), [Spherical ResNet](https://github.com/zhaofenqiang/SphericalUNetPackage/blob/b17add7b1259db187bbf9321cba2ec34e5e4be8e/sphericalunet/models/models.py#L494), Spherical CycleGAN, etc.
 
 [**Resample feature**](https://github.com/zhaofenqiang/SphericalUNetPackage/blob/99963658ab4690c198b337aad99a099791753902/sphericalunet/utils/interp_numpy.py#L316) on spherical surface to standard icosahedron subdivision spheres. Example code:
 ```
@@ -65,7 +65,7 @@ resampled_par = resample_label(surf['vertices'], template_163842['vertices'], su
 
 [**Rigid cortical surface registration**](https://github.com/zhaofenqiang/SphericalUNetPackage/blob/99963658ab4690c198b337aad99a099791753902/sphericalunet/utils/initial_rigid_align.py#L35). An example code can be found [here](https://github.com/zhaofenqiang/SphericalUNetPackage/blob/main/example/initialRigidAlignUsingSearch_longleaf.py).
 
-[**Chcek folded triangles**](https://github.com/zhaofenqiang/SphericalUNetPackage/blob/6d6c50fc6d20a0d7a2c09669ff1e9e7c78f82007/sphericalunet/utils/utils.py#L294), and correct them (not implemented yet...).
+[**Chcek folded triangles**](https://github.com/zhaofenqiang/SphericalUNetPackage/blob/b17add7b1259db187bbf9321cba2ec34e5e4be8e/sphericalunet/utils/utils.py#L496), and correct them (not implemented yet...).
 
 
 
