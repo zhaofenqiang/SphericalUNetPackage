@@ -1,4 +1,4 @@
-## Note that this package is obsolete. Active development has moved to [s3pipe](https://github.com/BRAIN-Lab-UNC/s3pipe).
+# Note that this package is obsolete. Active development has moved to [s3pipe](https://github.com/BRAIN-Lab-UNC/s3pipe).
 # [Spherical U-Net package](https://pypi.org/project/sphericalunet/)
 Python-based spherical cortical surface processing tools, including spherical resampling, interpolation, parcellation, registration, atlas construction, etc. It provides fast and accurate cortical surface-based data analysis using deep learning techniques.
 
